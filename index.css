@@ -1,0 +1,401 @@
+.siyuan-ai-mcp-bridge-settings {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  color: var(--b3-theme-on-background);
+  background: var(--b3-theme-background);
+}
+
+.siyuan-ai-mcp-bridge-shell {
+  box-sizing: border-box;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.siyuan-ai-mcp-bridge-nav {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 190px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 12px;
+  border-right: 1px solid var(--b3-border-color);
+  background: var(--b3-theme-background);
+  overflow: auto;
+}
+
+.siyuan-ai-mcp-bridge-nav-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--b3-theme-on-surface);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.siyuan-ai-mcp-bridge-nav-item:hover,
+.siyuan-ai-mcp-bridge-nav-item.is-active {
+  background: var(--b3-list-hover);
+  color: var(--b3-theme-on-background);
+}
+
+.siyuan-ai-mcp-bridge-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.siyuan-ai-mcp-bridge-nav-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.siyuan-ai-mcp-bridge-content {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+  scroll-behavior: smooth;
+}
+
+.siyuan-ai-mcp-bridge-content [data-section] {
+  scroll-margin-top: 12px;
+}
+
+.siyuan-ai-mcp-bridge-settings h2,
+.siyuan-ai-mcp-bridge-settings h3 {
+  margin: 0;
+  color: var(--b3-theme-on-background);
+  line-height: 1.35;
+}
+
+.siyuan-ai-mcp-bridge-settings h2 {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.siyuan-ai-mcp-bridge-settings h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.siyuan-ai-mcp-bridge-settings p,
+.siyuan-ai-mcp-bridge-settings small {
+  margin: 0;
+  color: var(--b3-theme-on-surface);
+  line-height: 1.6;
+}
+
+.siyuan-ai-mcp-bridge-settings small {
+  font-size: 12px;
+}
+
+.siyuan-ai-mcp-bridge-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 10px;
+  background: var(--b3-theme-surface);
+}
+
+.siyuan-ai-mcp-bridge-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.siyuan-ai-mcp-bridge-step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.siyuan-ai-mcp-bridge-step-title span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--b3-theme-primary);
+  color: var(--b3-theme-on-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.siyuan-ai-mcp-bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.siyuan-ai-mcp-bridge-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: var(--b3-theme-on-background);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.siyuan-ai-mcp-bridge-field input,
+.siyuan-ai-mcp-bridge-field select {
+  min-width: 0;
+  width: 100%;
+}
+
+.siyuan-ai-mcp-bridge-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.siyuan-ai-mcp-bridge-status-item {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  background: var(--b3-theme-background);
+}
+
+.siyuan-ai-mcp-bridge-status-item span {
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.siyuan-ai-mcp-bridge-status-item strong {
+  min-width: 0;
+  color: var(--b3-theme-on-background);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.siyuan-ai-mcp-bridge-inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.siyuan-ai-mcp-bridge-inline-error {
+  color: var(--b3-theme-error);
+}
+
+.siyuan-ai-mcp-bridge-client {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--b3-border-color);
+}
+
+.siyuan-ai-mcp-bridge-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--b3-border-color);
+}
+
+.siyuan-ai-mcp-bridge-tool-group:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.siyuan-ai-mcp-bridge-tool-title {
+  color: var(--b3-theme-on-background);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.siyuan-ai-mcp-bridge-tools {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.siyuan-ai-mcp-bridge-check {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.siyuan-ai-mcp-bridge-check input {
+  flex: 0 0 auto;
+}
+
+.siyuan-ai-mcp-bridge-table {
+  width: 100%;
+  border: 1px solid var(--b3-border-color);
+  border-collapse: separate;
+  border-radius: 8px;
+  border-spacing: 0;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.siyuan-ai-mcp-bridge-table th,
+.siyuan-ai-mcp-bridge-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--b3-border-color);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.siyuan-ai-mcp-bridge-table th {
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.siyuan-ai-mcp-bridge-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.siyuan-ai-mcp-bridge-table td:nth-child(2) {
+  max-width: 280px;
+  color: var(--b3-theme-on-surface);
+  font-family: var(--b3-font-family-code);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.siyuan-ai-mcp-bridge-table select {
+  width: 150px;
+}
+
+.siyuan-ai-mcp-bridge-error {
+  padding: 8px 10px;
+  border: 1px solid var(--b3-theme-error);
+  border-radius: 8px;
+  color: var(--b3-theme-error);
+  background: var(--b3-card-error-background);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.siyuan-ai-mcp-bridge-settings pre {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  background: var(--b3-theme-background);
+  color: var(--b3-theme-on-background);
+  font-family: var(--b3-font-family-code);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.siyuan-ai-mcp-bridge-settings summary {
+  cursor: pointer;
+  color: var(--b3-theme-on-background);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  user-select: none;
+}
+
+.siyuan-ai-mcp-bridge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .siyuan-ai-mcp-bridge-shell {
+    flex-direction: column;
+  }
+
+  .siyuan-ai-mcp-bridge-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+    gap: 6px;
+    padding: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--b3-border-color);
+  }
+
+  .siyuan-ai-mcp-bridge-nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 34px;
+    white-space: nowrap;
+  }
+
+  .siyuan-ai-mcp-bridge-content {
+    padding: 14px;
+  }
+
+  .siyuan-ai-mcp-bridge-grid,
+  .siyuan-ai-mcp-bridge-status-grid,
+  .siyuan-ai-mcp-bridge-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .siyuan-ai-mcp-bridge-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .siyuan-ai-mcp-bridge-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

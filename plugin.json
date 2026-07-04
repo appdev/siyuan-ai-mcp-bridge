@@ -1,0 +1,37 @@
+{
+  "name": "siyuan-ai-mcp-bridge",
+  "author": "ying",
+  "url": "https://github.com/appdev/siyuan-ai-mcp-bridge",
+  "version": "0.1.1",
+  "minAppVersion": "3.7.0",
+  "backends": [
+    "darwin"
+  ],
+  "frontends": [
+    "desktop"
+  ],
+  "disabledInPublish": true,
+  "displayName": {
+    "default": "SiYuan AI MCP Bridge",
+    "zh-CN": "思源 AI MCP 桥接"
+  },
+  "description": {
+    "default": "Expose controlled SiYuan operations to external AI agents through a local MCP stdio server.",
+    "zh-CN": "通过本地 MCP stdio 服务，让外部 AI 在权限控制下操作思源笔记。"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh-CN": "README_zh_CN.md"
+  },
+  "i18n": [
+    "en_US",
+    "zh_CN"
+  ],
+  "keywords": [
+    "MCP",
+    "AI",
+    "agent",
+    "SiYuan",
+    "permission"
+  ]
+}

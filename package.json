@@ -1,0 +1,10 @@
+{
+  "name": "siyuan-ai-mcp-bridge",
+  "version": "0.1.1",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/run-tests.cjs",
+    "package": "rm -f package.zip && zip -X -r package.zip plugin.json index.js index.css mcp-server.cjs icon.png preview.png README.md README_zh_CN.md i18n -x '*.DS_Store'"
+  }
+}
