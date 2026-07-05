@@ -1,6 +1,6 @@
 {
-  "openSettings": "Open AI MCP Bridge Settings",
-  "settingsTitle": "SiYuan AI MCP Bridge",
+  "openSettings": "Open SiYuan MCP Settings",
+  "settingsTitle": "SiYuan MCP",
   "settingsSaved": "MCP bridge settings saved",
   "settingsInvalid": "Invalid JSON settings",
   "settingsReset": "MCP bridge settings reset"

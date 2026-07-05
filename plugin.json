@@ -12,8 +12,8 @@
   ],
   "disabledInPublish": true,
   "displayName": {
-    "default": "SiYuan AI MCP Bridge",
-    "zh-CN": "思源 AI MCP 桥接"
+    "default": "SiYuan MCP",
+    "zh-CN": "思源MCP"
   },
   "description": {
     "default": "Use your SiYuan notes from MCP-compatible AI tools with notebook and action permissions.",

@@ -111,16 +111,9 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
     this.config = normalizeConfig(await this.loadConfig());
     await this.saveConfig(this.config);
 
-    this.addTopBar({
-      icon: '<svg viewBox="0 0 32 32"><path d="M6 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V7Zm3-.75a.75.75 0 0 0-.75.75v18c0 .41.34.75.75.75h14c.41 0 .75-.34.75-.75V7a.75.75 0 0 0-.75-.75H9Zm3 5.25h8v2h-8v-2Zm0 4.5h8v2h-8v-2Zm0 4.5h5v2h-5v-2Z"/></svg>',
-      title: this.text("openSettings", "Open AI MCP Bridge Settings"),
-      position: "right",
-      callback: () => this.openSetting()
-    });
-
     this.addCommand({
-      langKey: "openMcpBridgeSettings",
-      langText: this.text("openSettings", "Open AI MCP Bridge Settings"),
+      langKey: "openSiyuanMcpSettings",
+      langText: this.text("openSettings", "Open SiYuan MCP Settings"),
       callback: () => this.openSetting()
     });
   }
@@ -167,9 +160,18 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
     };
   }
 
+  getDisplayClientConfig(config = this.config) {
+    const clientConfig = this.getClientConfig(config);
+    const env = clientConfig.mcpServers["siyuan-ai-mcp-bridge"].env;
+    if (env.SIYUAN_API_TOKEN) {
+      env.SIYUAN_API_TOKEN = "********";
+    }
+    return clientConfig;
+  }
+
   openSetting() {
     const dialog = new Dialog({
-      title: this.text("settingsTitle", "SiYuan AI MCP Bridge"),
+      title: this.text("settingsTitle", "SiYuan MCP"),
       content: '<div class="siyuan-ai-mcp-bridge-settings"></div>',
       width: "min(900px, calc(100vw - 48px))",
       height: "min(720px, calc(100vh - 72px))"
@@ -382,7 +384,7 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       }
 
       const title = document.createElement("h2");
-      title.textContent = this.text("settingsTitle", "SiYuan AI MCP Bridge");
+      title.textContent = this.text("settingsTitle", "SiYuan MCP");
       content.appendChild(title);
 
       const desc = document.createElement("p");
@@ -433,13 +435,14 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       client.appendChild(clientHeader);
 
       const pre = document.createElement("pre");
-      pre.textContent = JSON.stringify(this.getClientConfig(draftConfig), null, 2);
+      const getClientConfigText = () => JSON.stringify(this.getClientConfig(draftConfig), null, 2);
+      pre.textContent = JSON.stringify(this.getDisplayClientConfig(draftConfig), null, 2);
       copy.addEventListener("click", async () => {
-        await copyText(pre.textContent);
+        await copyText(getClientConfigText());
         showMessage("MCP 客户端配置已复制");
       });
       aiCopy.addEventListener("click", async () => {
-        await copyText(`请帮我配置思源 MCP。下面是 MCP 客户端配置，请直接帮我添加到当前 AI 工具中：\n\n${pre.textContent}`);
+        await copyText(`请帮我配置思源MCP。下面是 MCP 客户端配置，请直接帮我添加到当前 AI 工具中：\n\n${getClientConfigText()}`);
         showMessage("已复制，可直接粘贴给 AI 工具");
       });
       client.appendChild(pre);

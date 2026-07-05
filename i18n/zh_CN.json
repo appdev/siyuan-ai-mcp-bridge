@@ -1,6 +1,6 @@
 {
-  "openSettings": "打开 AI MCP 桥接设置",
-  "settingsTitle": "思源 AI MCP 桥接",
+  "openSettings": "打开思源MCP设置",
+  "settingsTitle": "思源MCP",
   "settingsSaved": "MCP 桥接设置已保存",
   "settingsInvalid": "设置 JSON 不合法",
   "settingsReset": "MCP 桥接设置已重置"
