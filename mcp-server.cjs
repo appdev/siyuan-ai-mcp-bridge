@@ -2,10 +2,17 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const {
+  FALLBACK_API_URL,
+  normalizeApiUrl,
+  uniqueApiUrls
+} = require("./connection.cjs");
 
 const PLUGIN_NAME = "siyuan-ai-mcp-bridge";
 const CONFIG_API_PATH = `/data/storage/petal/${PLUGIN_NAME}/mcp-bridge-config.json`;
-const DEFAULT_API_URL = process.env.SIYUAN_API_URL || "http://127.0.0.1:6806";
+const DEFAULT_API_URL = normalizeApiUrl(process.env.SIYUAN_API_URL || FALLBACK_API_URL);
 const DEFAULT_TOKEN = process.env.SIYUAN_API_TOKEN || "";
 
 const PERMISSION_LEVELS = {none: 0, r: 1, rw: 2, rwd: 3};
@@ -194,10 +201,56 @@ function getFetch() {
   throw new Error("This MCP server requires Node.js with global fetch support.");
 }
 
+function getRuntimeEnv(runtime = {}) {
+  return runtime.env || process.env;
+}
+
+function getSiyuanPortFilePath(runtime = {}) {
+  return runtime.portFilePath || path.join(os.homedir(), ".config", "siyuan", "port.json");
+}
+
+function isProcessAlive(pid, runtime = {}) {
+  const check = runtime.isProcessAlive || ((value) => {
+    try {
+      process.kill(value, 0);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  });
+  return check(pid);
+}
+
+function readPortFileApiUrls(runtime = {}) {
+  const filePath = getSiyuanPortFilePath(runtime);
+  const readFile = runtime.readFile || ((target) => fs.readFileSync(target, "utf8"));
+  try {
+    const raw = JSON.parse(readFile(filePath));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return [];
+    }
+    return Object.entries(raw)
+      .filter(([pid]) => Number.isInteger(Number(pid)) && isProcessAlive(Number(pid), runtime))
+      .map(([, port]) => `http://127.0.0.1:${port}`);
+  } catch (error) {
+    return [];
+  }
+}
+
+function getApiUrlCandidates(runtime = {}) {
+  const env = getRuntimeEnv(runtime);
+  return uniqueApiUrls([
+    runtime.apiUrl,
+    env.SIYUAN_API_URL,
+    ...readPortFileApiUrls(runtime),
+    FALLBACK_API_URL
+  ]);
+}
+
 async function apiPost(path, payload = {}, runtime = {}) {
   const config = runtime.config || defaultConfig;
   const fetchImpl = runtime.fetch || getFetch();
-  const baseUrl = (runtime.apiUrl || config.siyuanApiUrl || DEFAULT_API_URL).replace(/\/+$/, "");
+  const baseUrl = normalizeApiUrl(runtime.apiUrl || config.siyuanApiUrl || DEFAULT_API_URL);
   const token = runtime.token || config.siyuanToken || DEFAULT_TOKEN;
   const response = await fetchImpl(`${baseUrl}${path}`, {
     method: "POST",
@@ -223,7 +276,7 @@ async function apiPost(path, payload = {}, runtime = {}) {
 async function apiGetFile(path, runtime = {}) {
   const config = runtime.config || defaultConfig;
   const fetchImpl = runtime.fetch || getFetch();
-  const baseUrl = (runtime.apiUrl || config.siyuanApiUrl || DEFAULT_API_URL).replace(/\/+$/, "");
+  const baseUrl = normalizeApiUrl(runtime.apiUrl || config.siyuanApiUrl || DEFAULT_API_URL);
   const token = runtime.token || config.siyuanToken || DEFAULT_TOKEN;
   const response = await fetchImpl(`${baseUrl}/api/file/getFile`, {
     method: "POST",
@@ -247,22 +300,34 @@ async function loadConfig(runtime = {}) {
   if (runtime.config) {
     return normalizeConfig(runtime.config);
   }
-  if (process.env.SIYUAN_MCP_BRIDGE_CONFIG) {
-    return normalizeConfig(JSON.parse(fs.readFileSync(process.env.SIYUAN_MCP_BRIDGE_CONFIG, "utf8")));
+  const env = getRuntimeEnv(runtime);
+  if (env.SIYUAN_MCP_BRIDGE_CONFIG) {
+    return normalizeConfig(JSON.parse(fs.readFileSync(env.SIYUAN_MCP_BRIDGE_CONFIG, "utf8")));
   }
-  const bootstrap = normalizeConfig({
-    siyuanApiUrl: process.env.SIYUAN_API_URL || DEFAULT_API_URL,
-    siyuanToken: process.env.SIYUAN_API_TOKEN || DEFAULT_TOKEN
-  });
-  try {
-    const raw = await apiGetFile(CONFIG_API_PATH, {config: bootstrap, fetch: runtime.fetch});
-    return normalizeConfig(JSON.parse(raw));
-  } catch (error) {
-    if (process.env.SIYUAN_MCP_BRIDGE_STRICT_CONFIG === "1") {
-      throw error;
+  const candidates = getApiUrlCandidates(runtime);
+  let lastError = null;
+  for (const apiUrl of candidates) {
+    const bootstrap = normalizeConfig({
+      siyuanApiUrl: apiUrl,
+      siyuanToken: env.SIYUAN_API_TOKEN || DEFAULT_TOKEN
+    });
+    try {
+      const raw = await apiGetFile(CONFIG_API_PATH, {config: bootstrap, fetch: runtime.fetch});
+      return normalizeConfig({
+        ...JSON.parse(raw),
+        siyuanApiUrl: apiUrl
+      });
+    } catch (error) {
+      lastError = error;
     }
   }
-  return bootstrap;
+  if (env.SIYUAN_MCP_BRIDGE_STRICT_CONFIG === "1" && lastError) {
+    throw lastError;
+  }
+  return normalizeConfig({
+    siyuanApiUrl: candidates[0] || DEFAULT_API_URL,
+    siyuanToken: env.SIYUAN_API_TOKEN || DEFAULT_TOKEN
+  });
 }
 
 async function queryBlockBox(id, runtime) {
@@ -511,6 +576,7 @@ function startStdioServer(runtime = {}) {
 
 module.exports = {
   CONFIG_API_PATH,
+  DEFAULT_API_URL,
   PERMISSION_LEVELS,
   apiGetFile,
   apiPost,
@@ -518,11 +584,13 @@ module.exports = {
   defaultConfig,
   encodeMessage,
   executeTool,
+  getApiUrlCandidates,
   handleRequest,
   hasNotebookPermission,
   loadConfig,
   normalizeConfig,
   permissionForNotebook,
+  readPortFileApiUrls,
   toolDefinitions
 };
 

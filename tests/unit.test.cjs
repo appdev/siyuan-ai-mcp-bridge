@@ -2,15 +2,23 @@
 
 const assert = require("assert");
 const {
+  apiUrlFromLocation,
+  detectSiyuanConnection,
+  getBrowserApiUrlCandidates,
+  selectLocalServerAddr
+} = require("../connection.cjs");
+const {
   createFrameParser,
   defaultConfig,
   encodeMessage,
   executeTool,
+  getApiUrlCandidates,
   handleRequest,
   hasNotebookPermission,
   loadConfig,
   normalizeConfig,
   permissionForNotebook,
+  readPortFileApiUrls,
   toolDefinitions
 } = require("../mcp-server.cjs");
 
@@ -42,6 +50,53 @@ async function run() {
   assert.equal(config.notebookPermissions.bad, undefined);
   assert.equal(hasNotebookPermission(config, "nb2", "rwd"), true);
   assert.equal(hasNotebookPermission(config, "nb1", "r"), false);
+  assert.equal(apiUrlFromLocation({hostname: "127.0.0.1", port: "61234"}), "http://127.0.0.1:61234");
+  assert.equal(selectLocalServerAddr([
+    "http://192.168.0.240:61234",
+    "http://127.0.0.1:61234"
+  ]), "http://127.0.0.1:61234");
+  assert.deepEqual(getBrowserApiUrlCandidates({
+    siyuanApiUrl: "http://127.0.0.1:6806"
+  }, {hostname: "127.0.0.1", port: "61234"}).slice(0, 2), [
+    "http://127.0.0.1:61234",
+    "http://127.0.0.1:6806"
+  ]);
+
+  const detectedConnection = await detectSiyuanConnection({
+    config: {siyuanApiUrl: "http://127.0.0.1:6806", siyuanToken: ""},
+    location: {hostname: "127.0.0.1", port: "61234"},
+    fetch: async (url) => {
+      assert.ok(String(url).startsWith("http://127.0.0.1:61234/"));
+      return jsonResponse({
+        code: 0,
+        msg: "",
+        data: {
+          conf: {
+            serverAddrs: ["http://192.168.0.240:61234", "http://127.0.0.1:61234"],
+            api: {token: "token-from-current-port"}
+          }
+        }
+      });
+    }
+  });
+  assert.equal(detectedConnection.apiUrl, "http://127.0.0.1:61234");
+  assert.equal(detectedConnection.token, "token-from-current-port");
+
+  const portFileUrls = readPortFileApiUrls({
+    portFilePath: "/tmp/siyuan-port.json",
+    readFile: () => JSON.stringify({"111": "6806", "222": "61234"}),
+    isProcessAlive: (pid) => pid === 222
+  });
+  assert.deepEqual(portFileUrls, ["http://127.0.0.1:61234"]);
+  assert.deepEqual(getApiUrlCandidates({
+    env: {SIYUAN_API_URL: "http://127.0.0.1:6806"},
+    portFilePath: "/tmp/siyuan-port.json",
+    readFile: () => JSON.stringify({"222": "61234"}),
+    isProcessAlive: (pid) => pid === 222
+  }).slice(0, 2), [
+    "http://127.0.0.1:6806",
+    "http://127.0.0.1:61234"
+  ]);
 
   const init = await handleRequest({jsonrpc: "2.0", id: 1, method: "initialize", params: {}});
   assert.equal(init.result.serverInfo.name, "siyuan-ai-mcp-bridge");
@@ -91,6 +146,28 @@ async function run() {
   });
   assert.equal(loaded.defaultNotebookPermission, "none");
   assert.equal(loaded.tools.systemInfo, true);
+
+  const triedConfigUrls = [];
+  const loadedFromChangedPort = await loadConfig({
+    env: {SIYUAN_API_URL: "http://127.0.0.1:6806"},
+    portFilePath: "/tmp/siyuan-port.json",
+    readFile: () => JSON.stringify({"222": "61234"}),
+    isProcessAlive: (pid) => pid === 222,
+    fetch: async (url) => {
+      triedConfigUrls.push(String(url));
+      if (String(url).startsWith("http://127.0.0.1:6806/")) {
+        return new Response("missing", {status: 404});
+      }
+      assert.ok(String(url).startsWith("http://127.0.0.1:61234/"));
+      return new Response(JSON.stringify({
+        siyuanApiUrl: "http://127.0.0.1:6806",
+        defaultNotebookPermission: "rwd"
+      }), {status: 200});
+    }
+  });
+  assert.equal(loadedFromChangedPort.siyuanApiUrl, "http://127.0.0.1:61234");
+  assert.equal(loadedFromChangedPort.defaultNotebookPermission, "rwd");
+  assert.deepEqual(triedConfigUrls.map((url) => new URL(url).port), ["6806", "61234"]);
 
   await assert.rejects(
     () => executeTool("siyuan_create_doc", {notebook: "nb1", path: "/x.md", markdown: "x"}, {

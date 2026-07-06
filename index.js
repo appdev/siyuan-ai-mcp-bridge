@@ -2,13 +2,18 @@
 
 const path = require("path");
 const {Dialog, Plugin, showMessage} = require("siyuan");
+const {
+  FALLBACK_API_URL,
+  detectSiyuanConnection,
+  normalizeApiUrl
+} = require("./connection.cjs");
 
 const CONFIG_FILE = "mcp-bridge-config.json";
 const SERVER_FILE = path.join(__dirname, "mcp-server.cjs");
 
 const defaultConfig = {
   version: 1,
-  siyuanApiUrl: "http://127.0.0.1:6806",
+  siyuanApiUrl: FALLBACK_API_URL,
   siyuanToken: "",
   defaultNotebookPermission: "r",
   notebookPermissions: {},
@@ -95,7 +100,7 @@ function normalizeConfig(input) {
     ...source,
     version: 1,
     siyuanApiUrl: typeof source.siyuanApiUrl === "string" && source.siyuanApiUrl.trim()
-      ? source.siyuanApiUrl.trim()
+      ? normalizeApiUrl(source.siyuanApiUrl)
       : defaultConfig.siyuanApiUrl,
     siyuanToken: typeof source.siyuanToken === "string" ? source.siyuanToken : "",
     defaultNotebookPermission: ["none", "r", "rw", "rwd"].includes(source.defaultNotebookPermission)
@@ -185,10 +190,11 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
     let tokenState = {
       loading: false,
       error: "",
-      loaded: false
+      loaded: false,
+      source: ""
     };
     let draftConfig = normalizeConfig(this.config);
-    let didAutoLoadToken = false;
+    let didAutoDetectConnection = false;
 
     const createButton = (label, type = "outline") => {
       const button = document.createElement("button");
@@ -313,34 +319,28 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       render();
     };
 
-    const loadSiyuanToken = async () => {
+    const detectCurrentConnection = async () => {
       draftConfig = readConfigFromForm();
-      tokenState = {loading: true, error: "", loaded: false};
+      tokenState = {loading: true, error: "", loaded: false, source: ""};
       render();
       try {
-        const response = await fetch(`${draftConfig.siyuanApiUrl.replace(/\/+$/, "")}/api/system/getConf`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(draftConfig.siyuanToken ? {Authorization: `Token ${draftConfig.siyuanToken}`} : {})
-          },
-          body: "{}"
+        const connection = await detectSiyuanConnection({
+          config: draftConfig,
+          fetch,
+          location: window.location
         });
-        const payload = await response.json();
-        if (!response.ok || payload.code !== 0) {
-          throw new Error(payload.msg || `HTTP ${response.status}`);
-        }
-        const token = payload && payload.data && payload.data.conf && payload.data.conf.api && payload.data.conf.api.token;
-        if (typeof token !== "string" || !token.trim()) {
-          throw new Error("当前思源配置中没有 api.token");
-        }
-        draftConfig = normalizeConfig({...draftConfig, siyuanToken: token.trim()});
-        tokenState = {loading: false, error: "", loaded: true};
+        draftConfig = normalizeConfig({
+          ...draftConfig,
+          siyuanApiUrl: connection.apiUrl,
+          siyuanToken: connection.token
+        });
+        tokenState = {loading: false, error: "", loaded: true, source: connection.source};
       } catch (error) {
         tokenState = {
           loading: false,
           error: error instanceof Error ? error.message : String(error),
-          loaded: false
+          loaded: false,
+          source: ""
         };
       }
       render();
@@ -399,7 +399,10 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       connectionStatus.className = "siyuan-ai-mcp-bridge-status-grid";
       const apiStatus = document.createElement("div");
       apiStatus.className = "siyuan-ai-mcp-bridge-status-item";
-      apiStatus.innerHTML = `<span>思源 API 地址</span><strong>${draftConfig.siyuanApiUrl}</strong><small>桌面端默认地址，通常不需要修改。</small>`;
+      const apiHint = tokenState.loaded
+        ? "已从当前思源内核自动识别，会写入下方 MCP 客户端配置。"
+        : "打开设置页后会自动识别当前思源内核地址。";
+      apiStatus.innerHTML = `<span>思源 API 地址</span><strong>${draftConfig.siyuanApiUrl}</strong><small>${apiHint}</small>`;
       connectionStatus.appendChild(apiStatus);
       const tokenStatus = document.createElement("div");
       tokenStatus.className = "siyuan-ai-mcp-bridge-status-item";
@@ -409,6 +412,11 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
           ? "已自动读取"
           : "等待自动读取";
       tokenStatus.innerHTML = `<span>思源 API Token</span><strong>${tokenText}</strong><small>用于 MCP 连接思源内核，已自动写入下方客户端配置。</small>`;
+      if (tokenState.source && tokenState.source !== draftConfig.siyuanApiUrl) {
+        const source = document.createElement("small");
+        source.textContent = `探测入口：${tokenState.source}`;
+        tokenStatus.appendChild(source);
+      }
       if (tokenState.error) {
         const tokenError = document.createElement("small");
         tokenError.className = "siyuan-ai-mcp-bridge-inline-error";
@@ -586,9 +594,9 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       setActiveSection("connection");
     };
     render();
-    if (!didAutoLoadToken) {
-      didAutoLoadToken = true;
-      setTimeout(() => loadSiyuanToken(), 0);
+    if (!didAutoDetectConnection) {
+      didAutoDetectConnection = true;
+      setTimeout(() => detectCurrentConnection(), 0);
     }
   }
 }
