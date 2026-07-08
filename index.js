@@ -113,6 +113,9 @@ function normalizeConfig(input) {
 
 class SiyuanAiMcpBridgePlugin extends Plugin {
   async onload() {
+    // SiYuan only shows the Bazaar/plugin-menu settings entry when this marker exists.
+    this.setting = {open: () => this.openSetting()};
+
     this.config = normalizeConfig(await this.loadConfig());
     await this.saveConfig(this.config);
 
