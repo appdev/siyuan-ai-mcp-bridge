@@ -1,6 +1,7 @@
 {
   "openSettings": "Open SiYuan MCP Settings",
   "settingsTitle": "SiYuan MCP",
+  "settingsDescription": "Configure MCP connection, note permissions, and tool permissions.",
   "settingsSaved": "MCP bridge settings saved",
   "settingsInvalid": "Invalid JSON settings",
   "settingsReset": "MCP bridge settings reset"

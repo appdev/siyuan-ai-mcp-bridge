@@ -1,15 +1,106 @@
 "use strict";
 
 const path = require("path");
-const {Dialog, Plugin, showMessage} = require("siyuan");
-const {
-  FALLBACK_API_URL,
-  detectSiyuanConnection,
-  normalizeApiUrl
-} = require("./connection.cjs");
+const {Dialog, Plugin, Setting, showMessage} = require("siyuan");
+
+const FALLBACK_API_URL = "http://127.0.0.1:6806";
+
+function normalizeApiUrl(value) {
+  return typeof value === "string" && value.trim()
+    ? value.trim().replace(/\/+$/, "")
+    : "";
+}
+
+function uniqueApiUrls(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    const normalized = normalizeApiUrl(value);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
+function apiUrlFromLocation(locationLike) {
+  if (!locationLike || !locationLike.port) {
+    return "";
+  }
+  const hostname = locationLike.hostname || "";
+  if (hostname !== "127.0.0.1" && hostname !== "localhost") {
+    return "";
+  }
+  return `http://127.0.0.1:${locationLike.port}`;
+}
+
+function getBrowserApiUrlCandidates(config = {}, locationLike) {
+  return uniqueApiUrls([
+    config.siyuanApiUrl,
+    FALLBACK_API_URL,
+    apiUrlFromLocation(locationLike)
+  ]);
+}
+
+function readConfFromPayload(payload) {
+  return payload && payload.data && payload.data.conf && typeof payload.data.conf === "object"
+    ? payload.data.conf
+    : null;
+}
+
+async function postJson(fetchImpl, apiUrl, apiPath, token) {
+  const response = await fetchImpl(`${apiUrl}${apiPath}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? {Authorization: `Token ${token}`} : {})
+    },
+    body: "{}"
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+async function detectSiyuanConnection(config = {}, options = {}) {
+  const fetchImpl = options.fetch || fetch;
+  const locationLike = options.location || (typeof window !== "undefined" ? window.location : undefined);
+  const configuredToken = typeof config.siyuanToken === "string" ? config.siyuanToken.trim() : "";
+  const tokenCandidates = configuredToken ? [configuredToken, ""] : [""];
+  let lastError = null;
+
+  for (const apiUrl of getBrowserApiUrlCandidates(config, locationLike)) {
+    for (const token of tokenCandidates) {
+      try {
+        const payload = await postJson(fetchImpl, apiUrl, "/api/system/getConf", token);
+        const conf = readConfFromPayload(payload);
+        const detectedToken = conf && conf.api && typeof conf.api.token === "string"
+          ? conf.api.token
+          : token;
+        return {apiUrl, token: detectedToken || token || "", conf};
+      } catch (error) {
+        lastError = error;
+      }
+    }
+  }
+
+  throw lastError || new Error("Cannot detect SiYuan API address");
+}
 
 const CONFIG_FILE = "mcp-bridge-config.json";
-const SERVER_FILE = path.join(__dirname, "mcp-server.cjs");
+
+function getPluginDir() {
+  const system = globalThis.siyuan && globalThis.siyuan.config
+    ? globalThis.siyuan.config.system
+    : null;
+  return system && system.dataDir
+    ? path.join(system.dataDir, "plugins", "siyuan-ai-mcp-bridge")
+    : __dirname;
+}
+
+const SERVER_FILE = path.join(getPluginDir(), "mcp-server.cjs");
 
 const defaultConfig = {
   version: 1,
@@ -113,16 +204,35 @@ function normalizeConfig(input) {
 
 class SiyuanAiMcpBridgePlugin extends Plugin {
   async onload() {
-    // SiYuan only shows the Bazaar/plugin-menu settings entry when this marker exists.
-    this.setting = {open: () => this.openSetting()};
-
     this.config = normalizeConfig(await this.loadConfig());
-    await this.saveConfig(this.config);
+    this.initSettingEntry();
 
     this.addCommand({
       langKey: "openSiyuanMcpSettings",
       langText: this.text("openSettings", "Open SiYuan MCP Settings"),
       callback: () => this.openSetting()
+    });
+  }
+
+  initSettingEntry() {
+    this.setting = new Setting({
+      confirmCallback: () => this.saveConfig(this.config)
+    });
+
+    this.setting.addItem({
+      title: this.text("settingsTitle", "SiYuan MCP"),
+      description: this.text(
+        "settingsDescription",
+        "Configure MCP connection, note permissions, and tool permissions."
+      ),
+      createActionElement: () => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "b3-button b3-button--outline";
+        button.textContent = this.text("openSettings", "Open SiYuan MCP Settings");
+        button.addEventListener("click", () => this.openSetting());
+        return button;
+      }
     });
   }
 
@@ -198,6 +308,11 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
     };
     let draftConfig = normalizeConfig(this.config);
     let didAutoDetectConnection = false;
+    let activeSection = "connection";
+    let saveState = {
+      status: "idle",
+      message: "修改后需要保存才会对 MCP 生效。"
+    };
 
     const createButton = (label, type = "outline") => {
       const button = document.createElement("button");
@@ -282,12 +397,52 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       return normalizeConfig(next);
     };
 
-    const saveFromForm = async () => {
+    const updateSaveState = () => {
+      const state = root.querySelector("[data-save-state]");
+      if (!state) {
+        return;
+      }
+      state.textContent = saveState.message;
+      state.dataset.status = saveState.status;
+    };
+
+    const markUnsaved = (message = "有未保存修改，保存后才会对 MCP 生效。") => {
+      saveState = {status: "dirty", message};
+      updateSaveState();
+    };
+
+    const saveFromForm = async (sectionId = activeSection, options = {}) => {
+      const {
+        rerender = true,
+        showToast = true,
+        savedMessage = "已保存。MCP 会在下次工具调用时读取最新权限。"
+      } = options;
       draftConfig = readConfigFromForm();
       await this.saveConfig(draftConfig);
       draftConfig = normalizeConfig(this.config);
-      showMessage(this.text("settingsSaved", "MCP bridge settings saved"));
-      render();
+      activeSection = sectionId;
+      saveState = {
+        status: "saved",
+        message: savedMessage
+      };
+      if (showToast) {
+        showMessage(this.text("settingsSaved", "MCP bridge settings saved"));
+      }
+      if (rerender) {
+        render();
+      } else {
+        updateSaveState();
+      }
+    };
+
+    const saveFeaturePermissions = async (showToast = true) => {
+      await saveFromForm("feature-permissions", {
+        rerender: showToast,
+        showToast,
+        savedMessage: showToast
+          ? "已保存。MCP 会在下次工具调用时读取最新权限。"
+          : "已自动保存。MCP 会在下次工具调用时读取最新权限。"
+      });
     };
 
     const loadNotebooks = async () => {
@@ -377,6 +532,7 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
         button.dataset.navTarget = item.id;
         button.innerHTML = `<span class="siyuan-ai-mcp-bridge-nav-icon">${item.icon}</span><span>${item.label}</span>`;
         button.addEventListener("click", () => {
+          activeSection = item.id;
           setActiveSection(item.id);
           const target = content.querySelector(`[data-section="${item.id}"]`);
           if (target) {
@@ -471,6 +627,9 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       permissionGrid.className = "siyuan-ai-mcp-bridge-grid";
       const defaultPermission = createSelect(draftConfig.defaultNotebookPermission, permissionOptions.filter((option) => option.value !== "inherit"));
       defaultPermission.dataset.setting = "defaultNotebookPermission";
+      defaultPermission.addEventListener("change", () => {
+        markUnsaved("笔记权限有未保存修改，保存后才会对 MCP 生效。");
+      });
       permissionGrid.appendChild(createField("默认笔记权限", defaultPermission, "未单独配置的笔记本都使用此权限。建议保持 r，只允许读取。"));
       permissions.appendChild(permissionGrid);
 
@@ -512,6 +671,9 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
           const current = draftConfig.notebookPermissions[notebook.id] || "inherit";
           const select = createSelect(current, permissionOptions);
           select.dataset.notebookPermission = notebook.id;
+          select.addEventListener("change", () => {
+            markUnsaved("笔记权限有未保存修改，保存后才会对 MCP 生效。");
+          });
           permission.appendChild(select);
           row.appendChild(permission);
           tbody.appendChild(row);
@@ -529,7 +691,7 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       notebooksSection.appendChild(actions);
 
       const save = createButton("保存配置", "primary");
-      save.addEventListener("click", saveFromForm);
+      save.addEventListener("click", () => saveFromForm("note-permissions"));
       actions.appendChild(save);
 
       const reset = createButton("恢复只读默认");
@@ -537,6 +699,11 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
         await this.saveConfig(defaultConfig);
         draftConfig = normalizeConfig(this.config);
         notebookState = {...notebookState, error: ""};
+        activeSection = "note-permissions";
+        saveState = {
+          status: "saved",
+          message: "已恢复只读默认并保存。"
+        };
         showMessage(this.text("settingsReset", "MCP bridge settings reset"));
         render();
       });
@@ -573,6 +740,16 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
           checkbox.type = "checkbox";
           checkbox.dataset.tool = key;
           checkbox.checked = draftConfig.tools[key] === true;
+          checkbox.addEventListener("change", () => {
+            markUnsaved("正在保存功能权限...");
+            saveFeaturePermissions(false).catch((error) => {
+              saveState = {
+                status: "dirty",
+                message: `保存失败：${error instanceof Error ? error.message : String(error)}`
+              };
+              updateSaveState();
+            });
+          });
           item.appendChild(checkbox);
           const text = document.createElement("span");
           text.textContent = label;
@@ -582,6 +759,18 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
         groupElement.appendChild(toolGrid);
         toolsSection.appendChild(groupElement);
       }
+      const toolActions = document.createElement("div");
+      toolActions.className = "siyuan-ai-mcp-bridge-actions";
+      const saveTools = createButton("保存功能权限", "primary");
+      saveTools.addEventListener("click", () => saveFeaturePermissions(true));
+      toolActions.appendChild(saveTools);
+      const saveStatus = document.createElement("span");
+      saveStatus.className = "siyuan-ai-mcp-bridge-save-state";
+      saveStatus.dataset.saveState = "true";
+      saveStatus.dataset.status = saveState.status;
+      saveStatus.textContent = saveState.message;
+      toolActions.appendChild(saveStatus);
+      toolsSection.appendChild(toolActions);
       content.appendChild(toolsSection);
 
       const advanced = document.createElement("details");
@@ -594,7 +783,11 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       json.textContent = JSON.stringify(draftConfig, null, 2);
       advanced.appendChild(json);
       content.appendChild(advanced);
-      setActiveSection("connection");
+      setActiveSection(activeSection);
+      const activeTarget = content.querySelector(`[data-section="${activeSection}"]`);
+      if (activeTarget && activeSection !== "connection") {
+        activeTarget.scrollIntoView({block: "start"});
+      }
     };
     render();
     if (!didAutoDetectConnection) {

@@ -1,6 +1,7 @@
 {
   "openSettings": "打开思源MCP设置",
   "settingsTitle": "思源MCP",
+  "settingsDescription": "配置 MCP 连接、笔记权限和功能权限。",
   "settingsSaved": "MCP 桥接设置已保存",
   "settingsInvalid": "设置 JSON 不合法",
   "settingsReset": "MCP 桥接设置已重置"

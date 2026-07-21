@@ -2,13 +2,13 @@
   "name": "siyuan-ai-mcp-bridge",
   "author": "ying",
   "url": "https://github.com/appdev/siyuan-ai-mcp-bridge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minAppVersion": "3.7.0",
   "backends": [
-    "darwin"
+    "all"
   ],
   "frontends": [
-    "desktop"
+    "all"
   ],
   "disabledInPublish": true,
   "displayName": {
@@ -23,10 +23,6 @@
     "default": "README.md",
     "zh-CN": "README_zh_CN.md"
   },
-  "i18n": [
-    "en_US",
-    "zh_CN"
-  ],
   "keywords": [
     "MCP",
     "AI",
