@@ -1,6 +1,5 @@
 "use strict";
 
-const path = require("path");
 const {Dialog, Plugin, Setting, showMessage} = require("siyuan");
 
 const FALLBACK_API_URL = "http://127.0.0.1:6806";
@@ -25,7 +24,13 @@ function uniqueApiUrls(values) {
 }
 
 function apiUrlFromLocation(locationLike) {
-  if (!locationLike || !locationLike.port) {
+  if (!locationLike) {
+    return "";
+  }
+  if ((locationLike.protocol === "http:" || locationLike.protocol === "https:") && locationLike.host) {
+    return `${locationLike.protocol}//${locationLike.host}`;
+  }
+  if (!locationLike.port) {
     return "";
   }
   const hostname = locationLike.hostname || "";
@@ -36,11 +41,12 @@ function apiUrlFromLocation(locationLike) {
 }
 
 function getBrowserApiUrlCandidates(config = {}, locationLike) {
-  return uniqueApiUrls([
-    config.siyuanApiUrl,
-    FALLBACK_API_URL,
-    apiUrlFromLocation(locationLike)
-  ]);
+  const configuredApiUrl = normalizeApiUrl(config.siyuanApiUrl);
+  const locationApiUrl = apiUrlFromLocation(locationLike);
+  if (configuredApiUrl && configuredApiUrl !== FALLBACK_API_URL) {
+    return uniqueApiUrls([configuredApiUrl, locationApiUrl, FALLBACK_API_URL]);
+  }
+  return uniqueApiUrls([locationApiUrl, configuredApiUrl, FALLBACK_API_URL]);
 }
 
 function readConfFromPayload(payload) {
@@ -96,11 +102,13 @@ function getPluginDir() {
     ? globalThis.siyuan.config.system
     : null;
   return system && system.dataDir
-    ? path.join(system.dataDir, "plugins", "siyuan-ai-mcp-bridge")
-    : __dirname;
+    ? `${system.dataDir.replace(/\/+$/, "")}/plugins/siyuan-ai-mcp-bridge`
+    : typeof __dirname !== "undefined"
+      ? __dirname
+      : "data/plugins/siyuan-ai-mcp-bridge";
 }
 
-const SERVER_FILE = path.join(getPluginDir(), "mcp-server.cjs");
+const SERVER_FILE = `${getPluginDir().replace(/\/+$/, "")}/mcp-server.cjs`;
 
 const defaultConfig = {
   version: 1,
@@ -218,6 +226,7 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
     this.setting = new Setting({
       confirmCallback: () => this.saveConfig(this.config)
     });
+    this.setting.open = () => this.openSetting();
 
     this.setting.addItem({
       title: this.text("settingsTitle", "SiYuan MCP"),
@@ -482,8 +491,7 @@ class SiyuanAiMcpBridgePlugin extends Plugin {
       tokenState = {loading: true, error: "", loaded: false, source: ""};
       render();
       try {
-        const connection = await detectSiyuanConnection({
-          config: draftConfig,
+        const connection = await detectSiyuanConnection(draftConfig, {
           fetch,
           location: window.location
         });
